@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Exercise 2 - ColorElevationMaps</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <script type="module">
+    // 1. imports
+    import * as THREE from 'three';
+    import { createBasicScene, setupResize, setupXR, colorConversionsGLSL, componentSelectionGLSL, createColorSpaceSelector, loadMediaTexture } from './js/shaderscolorsciences.js';
+
+    // 2. create scene
+    const { scene, camera, renderer, controls } = createBasicScene();
+    setupResize(renderer, camera);
+
+    // Position the camera to have a good view of the plane
+    camera.position.set(0, -1.5, 1.8);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    // 4. UI helpers
+    function createComponentSelector(onChange, initialValue = 0) {
+      const controlsDiv = document.createElement('div');
+      controlsDiv.style.cssText = 'position: absolute; top: 70px; left: 10px; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 5px; font-family: Arial; z-index: 100;';
+
+      const label = document.createElement('label');
+      label.textContent = 'Component: ';
+      label.style.marginRight = '10px';
+      label.style.fontWeight = 'bold';
+
+      const select = document.createElement('select');
+      select.style.cssText = 'padding: 8px; font-size: 14px; cursor: pointer;';
+      select.innerHTML = `
+        <option value="0">R</option>
+        <option value="1">G</option>
+        <option value="2">B</option>
+      `;
+      select.value = String(initialValue);
+
+      select.addEventListener('change', (event) => onChange(parseInt(event.target.value, 10)));
+
+      controlsDiv.appendChild(label);
+      controlsDiv.appendChild(select);
+      document.body.appendChild(controlsDiv);
+
+      return { controlsDiv, select };
+    }
+
+    // Update component labels when the selected color space changes
+    function updateComponentLabels(space) {
+      const labels = [
+            ['R', 'G', 'B'],
+            ['H', 'S', 'V'],
+            ['X', 'Y', 'Z'],
+            ['x', 'y', 'Y'],
+            ['L*', 'a*', 'b*'],
+            ['L*', 'C*', 'h']
+        ];
+
+        componentUI.select.innerHTML = `
+          <option value="0">${labels[space][0]}</option>
+          <option value="1">${labels[space][1]}</option>
+          <option value="2">${labels[space][2]}</option>
+        `;
+      }
+
+    function createHeightScaleSlider(onChange, initialValue = 0.4) {
+      const controlsDiv = document.createElement('div');
+      controlsDiv.style.cssText = 'position: absolute; top: 130px; left: 10px; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 5px; font-family: Arial; z-index: 100; width: 330px;';
+
+      const label = document.createElement('label');
+      label.textContent = 'Height Scale: ';
+      label.style.marginRight = '10px';
+      label.style.fontWeight = 'bold';
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '0';
+      slider.max = '1.5';
+      slider.step = '0.01';
+      slider.value = String(initialValue);
+      slider.style.width = '220px';
+      slider.style.marginTop = '8px';
+      slider.style.display = 'block';
+
+      slider.addEventListener('input', (event) => onChange(parseFloat(event.target.value)));
+
+      controlsDiv.appendChild(label);
+      controlsDiv.appendChild(slider);
+      document.body.appendChild(controlsDiv);
+
+      return { controlsDiv, slider };
+    }
+
+    function createDisplayModeSelector(onChange, initialValue = 1) {
+      const controlsDiv = document.createElement('div');
+      controlsDiv.style.cssText = 'position: absolute; top: 220px; left: 10px; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 5px; font-family: Arial; z-index: 100;';
+
+      const label = document.createElement('label');
+      label.textContent = 'Display: ';
+      label.style.marginRight = '10px';
+      label.style.fontWeight = 'bold';
+
+      const select = document.createElement('select');
+      select.style.cssText = 'padding: 8px; font-size: 14px; cursor: pointer;';
+      select.innerHTML = `
+        <option value="0">Image Color</option>
+        <option value="1">Height (Grayscale)</option>
+      `;
+      select.value = String(initialValue);
+
+      select.addEventListener('change', (event) => onChange(parseInt(event.target.value, 10)));
+
+      controlsDiv.appendChild(label);
+      controlsDiv.appendChild(select);
+      document.body.appendChild(controlsDiv);
+
+      return { controlsDiv, select };
+    }
+
+    // 5. define shaders
+    // Vertex shader maps one selected color component to elevation
+    const vertexShader = `
+      uniform sampler2D uTexture;
+      uniform int uColorSpace;
+      uniform int uComponent;
+      uniform float uHeightScale;
+
+      varying vec3 vColor;
+      varying float vHeight;
+
+      ${colorConversionsGLSL}
+      ${componentSelectionGLSL}
+
+      void main() {
+        vec3 rgb = texture2D(uTexture, uv).rgb;
+        vColor = rgb;
+
+        float h = getNormalizedComponent(rgb, uColorSpace, uComponent);
+        vHeight = h;
+
+        vec3 pos = position;
+        pos.z += (h - 0.5) * uHeightScale;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `;
+      
+    // Fragment shader switches between color display and height preview
+    const fragmentShader = `
+      varying vec3 vColor;
+      varying float vHeight;
+
+      uniform int uShowMode;
+
+      void main() {
+        if (uShowMode == 1) {
+          gl_FragColor = vec4(vec3(vHeight), 1.0);
+        } else {
+          gl_FragColor = vec4(vColor, 1.0);
+        }
+      }
+    `;
+
+    // 6. load media texture and create mesh
+    const mediaSource = {
+      type: 'image',
+      src: 'assets/image.png'
+    };
+
+    const { texture, width: imgWidth, height: imgHeight, videoElement, isVideo } = await loadMediaTexture(mediaSource);
+
+    const segX = Math.min(imgWidth - 1, 120);
+    const segY = Math.min(imgHeight - 1, 120);
+
+    const planeWidth = 2; // Normalized device coordinates range from -1 to 1
+    const planeHeight = 2 * (imgHeight / imgWidth); // Maintain aspect ratio
+
+    
+    const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight, segX, segY);
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: texture },
+        uColorSpace: { value: 0 }, // 0 = RGB
+        uComponent: { value: 0 }, // 0 = R
+        uHeightScale: { value: 0.4 },
+        uShowMode: { value: 1 }
+      },
+      vertexShader,
+      fragmentShader,
+      side: THREE.DoubleSide,
+      wireframe: false
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    // 7. create UI and wire uniforms
+
+    const componentUI = createComponentSelector((value) => {
+      material.uniforms.uComponent.value = value;
+    }, material.uniforms.uComponent.value);
+
+    updateComponentLabels(material.uniforms.uColorSpace.value);
+
+    createColorSpaceSelector((value) => {
+      material.uniforms.uColorSpace.value = value;
+      material.uniforms.uComponent.value = 0; // Reset component to 0 when color space changes
+      updateComponentLabels(value);
+      componentUI.select.value = '0'; // Reset component selector UI
+    }, material.uniforms.uColorSpace.value);
+
+    createHeightScaleSlider((value) => {
+      material.uniforms.uHeightScale.value = value;
+    }, material.uniforms.uHeightScale.value);
+
+    createDisplayModeSelector((value) => {
+      material.uniforms.uShowMode.value = value;
+    }, material.uniforms.uShowMode.value);
+
+    // 8. setup XR
+    setupXR(renderer, scene, camera, controls, null, mesh);
+
+    // 9. animate
+    function animate() {
+      if (isVideo && videoElement.readyState >= 2) {
+        texture.needsUpdate = true;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    renderer.setAnimationLoop(animate);
+  </script>
+</body>
+</html>
