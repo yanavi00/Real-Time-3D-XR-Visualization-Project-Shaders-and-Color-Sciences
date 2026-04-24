@@ -16,8 +16,6 @@ The goal of the practical work is to create complete interactive applications th
 * OrbitControls
 * JavaScript (ES6 modules)
 
----
-
 ## Implemented Color Spaces
 
 The following six color spaces were implemented and can be selected interactively:
@@ -31,17 +29,12 @@ The following six color spaces were implemented and can be selected interactivel
 
 Color conversion functions were implemented directly inside GLSL shaders for real-time visualization.
 
----
-
 # Exercise 1 — Color Space Point-Cloud Visualization
 
 This exercise visualizes the color distribution of an input image as a 3D point cloud.
-
 Each pixel of the source image is converted into a point in 3D space.
 Its position depends on the selected color space coordinates, while the original RGB color is preserved for rendering.
-
 The user can switch between all six color spaces and observe how the same image is distributed differently in each representation.
-
 To improve XR performance, point cloud sampling was reduced by skipping pixels instead of rendering one point per pixel.
 
 ### Main features
@@ -51,23 +44,16 @@ To improve XR performance, point cloud sampling was reduced by skipping pixels i
 * interactive color space selection
 * optimized point count for WebXR
 
----
-
 # Exercise 2 — Color Elevation Maps
 
 This exercise creates elevation maps (heightfield surfaces) from image color information.
-
 For every pixel `(u, v)` of the source image, one selected color component is used as height:
-
-z = h(u, v)
-
+z = h(u, v).
 The user can choose:
-
 * color space
 * component (for example R/G/B, H/S/V, L/a/b)
 * height scale
-* display mode (original image color or grayscale height view)
-
+* display mode (original image color or grayscale height view).
 This allows spatial visualization of how a single color channel varies across the image.
 
 ### Main features
@@ -77,23 +63,15 @@ This allows spatial visualization of how a single color channel varies across th
 * interactive height scaling
 * multiple display modes
 
----
-
 # Exercise 3 — Lambertian Directional Lighting on Elevation Maps
 
 This exercise improves the depth perception of Exercise 2 by adding directional Lambertian lighting.
-
 The surface normal is estimated using neighboring height samples (left, right, up, down) from the heightfield.
-
 The Lambertian diffuse term is computed using:
-
 max(0, N · L)
-
 where:
-
 * N = surface normal
-* L = light direction
-
+* L = light direction.
 Ambient and diffuse lighting are combined to improve the perception of 3D shape and surface relief.
 
 ### Main features
@@ -102,8 +80,6 @@ Ambient and diffuse lighting are combined to improve the perception of 3D shape 
 * Lambertian diffuse lighting
 * ambient + diffuse light controls
 * interactive lighting parameter adjustment
-
----
 
 # WebXR / VR / MR Support
 
@@ -119,8 +95,6 @@ Implemented features include:
 * object repositioning in front of the user during XR sessions
 
 Due to the absence of a physical headset, full immersive testing was limited, but the WebXR pipeline and XR interaction flow were implemented and tested using browser-based tools.
-
----
 
 # Project Structure
 
@@ -141,8 +115,6 @@ Project2/
 └── README.md
 ```
 
----
-
 # Notes
 
 The shared file `shaderscolorsciences.js` contains reusable helper functions for:
@@ -156,11 +128,3 @@ The shared file `shaderscolorsciences.js` contains reusable helper functions for
 * component selection GLSL helpers
 
 This helped reduce code duplication between exercises and kept the project structure cleaner.
-
----
-
-# Author
-
-Yana Vlasova
-IMLEX – Imaging and Light in Extended Reality
-3D Visualization Course
