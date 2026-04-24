@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Exercise 3 - Lambertian Directional Lighting</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <script type="module">
+    // 1. imports
+    import * as THREE from 'three';
+    import { createBasicScene, setupResize, setupXR, colorConversionsGLSL, componentSelectionGLSL, createColorSpaceSelector, loadMediaTexture } from './js/shaderscolorsciences.js';
+
+    // 2. create scene
+    const { scene, camera, renderer, controls } = createBasicScene();
+    setupResize(renderer, camera);
+    camera.position.set(0, -1.5, 1.8);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    // 3. load media texture
+    const mediaSource = {
+      type: 'image',
+      src: './assets/image.png'
+    };
+    const { texture, width: imgWidth, height: imgHeight, videoElement, isVideo } = await loadMediaTexture(mediaSource);
+    const segX = Math.min(imgWidth - 1, 100);
+    const segY = Math.min(imgHeight - 1, 100);
+    const planeWidth = 2;
+    const planeHeight = 2 * (imgHeight / imgWidth);
+
+    // 4. define vertex shader (same as Exercise 2)
+    const vertexShader = `
+      uniform sampler2D uTexture;
+      uniform int uColorSpace;
+      uniform int uComponent;
+      uniform float uHeightScale;
+
+      varying vec2 vUv;
+      varying vec3 vColor;
+
+      ${colorConversionsGLSL}
+      ${componentSelectionGLSL}
+
+      void main() {
+        vUv = uv;
+        vec3 rgb = texture2D(uTexture, uv).rgb;
+        vColor = rgb;
+
+        float h = getNormalizedComponent(rgb, uColorSpace, uComponent);
+        vec3 pos = position;
+        pos.z += (h - 0.5) * uHeightScale;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `;
+
+    // 5. define fragment shader (Lambertian directional lighting part)
+    const fragmentShader = `
+      uniform sampler2D uTexture;
+      uniform int uColorSpace;
+      uniform int uComponent;
+      uniform float uHeightScale;
+
+      uniform vec2 uTexelSize;
+      uniform vec3 uLightDirection;
+      uniform float uAmbientStrength;
+      uniform float uDiffuseStrength;
+
+      varying vec2 vUv;
+      varying vec3 vColor;
+
+      ${colorConversionsGLSL}
+      ${componentSelectionGLSL}
+
+      float getHeightAt(vec2 uvCoord) {
+        // Sample the selected color-space component and convert it to height.
+        vec3 rgb = texture2D(uTexture, uvCoord).rgb;
+        float h = getNormalizedComponent(rgb, uColorSpace, uComponent);
+        return (h - 0.5) * uHeightScale;
+      }
+
+      void main() {
+        // The normal estimation is done by sampling the height at the current pixel and its four immediate neighbors (left, right, down, up)
+        float hL = getHeightAt(vUv - vec2(uTexelSize.x, 0.0));
+        float hR = getHeightAt(vUv + vec2(uTexelSize.x, 0.0));
+        float hD = getHeightAt(vUv - vec2(0.0, uTexelSize.y));
+        float hU = getHeightAt(vUv + vec2(0.0, uTexelSize.y));
+
+        float dhdu = (hR - hL) / (2.0 * uTexelSize.x);
+        float dhdv = (hU - hD) / (2.0 * uTexelSize.y);
+
+        // The Lambertian diffuse term is the dot product of the surface normal and the light direction.
+        vec3 normal = normalize(vec3(-dhdu, -dhdv, 1.0));
+        vec3 lightDir = normalize(uLightDirection);
+        float diffuse = max(dot(normal, lightDir), 0.0);
+
+        float lighting = clamp(uAmbientStrength + uDiffuseStrength * diffuse, 0.0, 1.0); // Combine ambient and diffuse terms, and clamp to [0, 1]
+        vec3 finalColor = vColor * lighting;
+        gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `;
+
+    // 6. create PlaneGeometry
+    const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight, segX, segY);
+
+    // 7. create ShaderMaterial with extra lighting uniforms
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: texture },
+        uColorSpace: { value: 0 },
+        uComponent: { value: 0 },
+        uHeightScale: { value: 0.4 },
+        uTexelSize: { value: new THREE.Vector2(1 / imgWidth, 1 / imgHeight) },
+        uLightDirection: { value: new THREE.Vector3(0.4, 0.6, 1.0).normalize() },
+        uAmbientStrength: { value: 0.25 },
+        uDiffuseStrength: { value: 0.75 }
+      },
+      vertexShader,
+      fragmentShader,
+      side: THREE.DoubleSide
+    });
+
+    // 8. create mesh
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    // 9. create UI
+    function createComponentSelector(onChange, initialValue = 0) {
+      const controlsDiv = document.createElement('div');
+      controlsDiv.style.cssText = 'position: absolute; top: 70px; left: 10px; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 5px; font-family: Arial; z-index: 100;';
+
+      const label = document.createElement('label');
+      label.textContent = 'Component: ';
+      label.style.marginRight = '10px';
+      label.style.fontWeight = 'bold';
+
+      const select = document.createElement('select');
+      select.style.cssText = 'padding: 8px; font-size: 14px; cursor: pointer;';
+      select.value = String(initialValue);
+      select.addEventListener('change', (event) => onChange(parseInt(event.target.value, 10)));
+
+      controlsDiv.appendChild(label);
+      controlsDiv.appendChild(select);
+      document.body.appendChild(controlsDiv);
+      return { controlsDiv, select };
+    }
+
+    // Update the component selector options based on the selected color space
+    function updateComponentLabels(componentUI, space) {
+      const labels = [
+        ['R', 'G', 'B'],
+        ['H', 'S', 'V'],
+        ['X', 'Y', 'Z'],
+        ['x', 'y', 'Y'],
+        ['L*', 'a*', 'b*'],
+        ['L*', 'C*', 'h']
+      ];
+
+      componentUI.select.innerHTML = `
+        <option value="0">${labels[space][0]}</option>
+        <option value="1">${labels[space][1]}</option>
+        <option value="2">${labels[space][2]}</option>
+      `;
+    }
+
+    // Reuse the createSlider function from Exercise 2 for the new lighting parameters
+    function createSlider(topPx, title, min, max, step, initialValue, onInput) {
+      const controlsDiv = document.createElement('div');
+      controlsDiv.style.cssText = `position: absolute; top: ${topPx}px; left: 10px; background: rgba(255,255,255,0.95); padding: 12px; border-radius: 5px; font-family: Arial; z-index: 100; width: 280px;`;
+
+      const label = document.createElement('label');
+      label.textContent = `${title}: ${initialValue}`;
+      label.style.fontWeight = 'bold';
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = String(min);
+      slider.max = String(max);
+      slider.step = String(step);
+      slider.value = String(initialValue);
+      slider.style.width = '220px';
+      slider.style.marginTop = '8px';
+      slider.style.display = 'block';
+
+      slider.addEventListener('input', (event) => {
+        const value = parseFloat(event.target.value);
+        label.textContent = `${title}: ${value.toFixed(2)}`;
+        onInput(value);
+      });
+
+      controlsDiv.appendChild(label);
+      controlsDiv.appendChild(slider);
+      document.body.appendChild(controlsDiv);
+      return { controlsDiv, slider };
+    }
+    // Create the component selector and keep its labels in sync with the selected color space
+    const componentUI = createComponentSelector((value) => {
+      material.uniforms.uComponent.value = value;
+    }, material.uniforms.uComponent.value);
+    updateComponentLabels(componentUI, material.uniforms.uColorSpace.value);
+
+    // Keep the component labels in sync with the selected color space.
+    createColorSpaceSelector((value) => {
+      material.uniforms.uColorSpace.value = value;
+      material.uniforms.uComponent.value = 0;
+      componentUI.select.value = '0';
+      updateComponentLabels(componentUI, value);
+    }, material.uniforms.uColorSpace.value);
+
+    createSlider(130, 'Height Scale', 0.0, 1.5, 0.01, material.uniforms.uHeightScale.value, (value) => {
+      material.uniforms.uHeightScale.value = value;
+    });
+
+    createSlider(220, 'Ambient', 0.0, 1.0, 0.01, material.uniforms.uAmbientStrength.value, (value) => {
+      material.uniforms.uAmbientStrength.value = value;
+    });
+
+    createSlider(310, 'Diffuse', 0.0, 1.5, 0.01, material.uniforms.uDiffuseStrength.value, (value) => {
+      material.uniforms.uDiffuseStrength.value = value;
+    });
+
+    setupXR(renderer, scene, camera, controls, null, mesh);
+
+    // 10. animate
+    function animate() {
+      if (isVideo && videoElement.readyState >= 2) {
+        texture.needsUpdate = true;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    renderer.setAnimationLoop(animate);
+  </script>
+</body>
+</html>
