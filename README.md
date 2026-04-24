@@ -67,6 +67,10 @@ This allows spatial visualization of how a single color channel varies across th
 * interactive height scaling
 * multiple display modes
 
+## Example Result
+
+![Exercise 2 Screenshot](./assets/ex2_screenshot.png)
+
 # Exercise 3 — Lambertian Directional Lighting on Elevation Maps
 
 This exercise improves the depth perception of Exercise 2 by adding directional Lambertian lighting.
@@ -99,6 +103,10 @@ Implemented features include:
 * object repositioning in front of the user during XR sessions
 
 Due to the absence of a physical headset, full immersive testing was limited, but the WebXR pipeline and XR interaction flow were implemented and tested using browser-based tools.
+
+## Example Result
+
+![Exercise 3 Screenshot](./assets/ex3_screenshot.png)
 
 # Project Structure
 
