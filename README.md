@@ -89,6 +89,11 @@ Ambient and diffuse lighting are combined to improve the perception of 3D shape 
 * ambient + diffuse light controls
 * interactive lighting parameter adjustment
 
+## Example Result
+
+![Exercise 3 Screenshot](./assets/ex3_screenshot.png)
+
+
 # WebXR / VR / MR Support
 
 All three exercises were made accessible in XR using the WebXR API.
@@ -103,10 +108,6 @@ Implemented features include:
 * object repositioning in front of the user during XR sessions
 
 Due to the absence of a physical headset, full immersive testing was limited, but the WebXR pipeline and XR interaction flow were implemented and tested using browser-based tools.
-
-## Example Result
-
-![Exercise 3 Screenshot](./assets/ex3_screenshot.png)
 
 # Project Structure
 
