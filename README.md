@@ -1,4 +1,4 @@
-# Real-Time-3D-XR-Visualization-Project-Shaders-and-Color-Sciences
+# Real Time 3D XR Visualization Project, Shaders and Color Sciences
 
 This project was developed for the 3D Visualization course and focuses on shader-based visualization of color information using Three.js, GLSL, and WebXR.
 
@@ -43,6 +43,10 @@ To improve XR performance, point cloud sampling was reduced by skipping pixels i
 * image and optional video input support
 * interactive color space selection
 * optimized point count for WebXR
+
+## Example Result
+
+![Exercise 1 Screenshot](./assets/ex1_screenshot.png)
 
 # Exercise 2 — Color Elevation Maps
 
