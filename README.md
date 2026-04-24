@@ -99,7 +99,7 @@ Due to the absence of a physical headset, full immersive testing was limited, bu
 # Project Structure
 
 ```text
-Project2/
+Real-Time-3D-XR-Visualization-Project-Shaders-and-Color-Sciences/
 │
 ├── Ex1_colorspacepointcloud.html
 ├── Ex2_colorelevationmaps.html
@@ -110,7 +110,7 @@ Project2/
 │
 ├── assets/
 │   ├── image.png
-│   └── video.mp4
+│   └── paris.jpg
 │
 └── README.md
 ```
